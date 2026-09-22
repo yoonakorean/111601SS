@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>15-1 句子跟讀挑戰</title>
+<title>16-1 句子跟讀挑戰</title>
 <style>
 body { font-family: sans-serif; max-width: 600px; margin: auto; text-align: center; padding: 30px 15px; }
 #logo { width: 150px; max-width: 80%; margin-bottom: 10px; }
@@ -30,7 +30,7 @@ audio { width: 100%; max-width: 500px; margin: 0 auto; display: block; }
 </head>
 <body>
 <img id="logo" src="logo.png" alt="Logo">
-<div id="game-title">15-1 句子跟讀挑戰</div>
+<div id="game-title">16-1 句子跟讀挑戰</div>
 
 <div id="nickname-container">
   <div style="font-size:20px; font-weight:bold; margin-bottom:10px;">歡迎挑戰者到來</div>
@@ -75,16 +75,16 @@ audio { width: 100%; max-width: 500px; margin: 0 auto; display: block; }
 <script src="recorder.js"></script>
 <script>
 const questions = [
-  { audio: "audio/11150101S.mp3", text: "백화점에 갑니다.", keywords: "백화점,가다" },
-  { audio: "audio/11150102S.mp3", text: "우체국에 갑니다.", keywords: "우체국,가다" },
-  { audio: "audio/11150103S.mp3", text: "집에 옵니다.", keywords: "집,오다" },
-  { audio: "audio/11150104S.mp3", text: "기숙사에 옵니까?", keywords: "기숙사,오다,묻다" },
-  { audio: "audio/11150105S.mp3", text: "도서관에 갑니다.", keywords: "도서관,가다" },
-  { audio: "audio/11150106S.mp3", text: "은행에 갑니까?", keywords: "은행,가다,묻다" },
-  { audio: "audio/11150107S.mp3", text: "편의점에 갑니다.", keywords: "편의점,가다" },
-  { audio: "audio/11150108S.mp3", text: "서점에 갑니다.", keywords: "서점,가다" },
-  { audio: "audio/11150109S.mp3", text: "노래방에 갑니다.", keywords: "노래방,가다" },
-  { audio: "audio/11150110S.mp3", text: "박물관에 옵니다.", keywords: "박물관,오다" }
+  { audio: "audio/11160101S.mp3", text: "우리 집에 오세요.", keywords: "오다, -세요" },
+  { audio: "audio/11160102S.mp3", text: "이름을 쓰세요.", keywords: "쓰다, -세요" },
+  { audio: "audio/11160103S.mp3", text: "창문을 여세요.", keywords: "열다, -세요" },
+  { audio: "audio/11160104S.mp3", text: "천천히 드세요.", keywords: "들다, -세요" },
+  { audio: "audio/11160105S.mp3", text: "앉으세요.", keywords: "앉다, -으세요" },
+  { audio: "audio/11160106S.mp3", text: "가지 마세요.", keywords: "가다, -지 마세요" },
+  { audio: "audio/11160107S.mp3", text: "말하지 마세요.", keywords: "말하다, -지 마세요" },
+  { audio: "audio/11160108S.mp3", text: "문을 닫지 마세요.", keywords: "닫다, -지 마세요" },
+  { audio: "audio/11160109S.mp3", text: "많이 마시지 마세요.", keywords: "마시다, -지 마세요" },
+  { audio: "audio/11160110S.mp3", text: "만지지 마세요.", keywords: "만지다, -지 마세요" }
 ];
 
 let currentQuestion = 0;
@@ -95,7 +95,7 @@ let completedQuestions = [];
 let speechRecognizer = null;
 let speechResultText = "";
 
-const unit = "11-15-1 句子跟讀挑戰";
+const unit = "11-16-1 句子跟讀挑戰";
 
 const questionText = document.getElementById("question-text");
 const keywordsDiv = document.getElementById("keywords");
