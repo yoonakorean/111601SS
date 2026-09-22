@@ -12,6 +12,7 @@ body { font-family: sans-serif; max-width: 600px; margin: auto; text-align: cent
 #question-selector { margin: 20px 0; }
 button { padding: 10px 20px; font-size: 16px; border-radius: 8px; border: 1px solid #ccc; background-color: #f0f0f0; cursor: pointer; transition: background-color 0.3s; }
 button:hover { background-color: #4a90e2; color: #fff; }
+button:disabled { background-color: #e0e0e0; color: #aaa; cursor: not-allowed; }
 .selector-btn { width: 40px; height: 40px; margin: 5px; padding: 0; border-radius: 50%; }
 .hidden { display: none; }
 .audio-player-container { margin: 10px 0; }
@@ -24,6 +25,7 @@ audio { width: 100%; max-width: 500px; margin: 0 auto; display: block; }
 #progress-bar { width: 100%; background-color: #eee; border-radius: 10px; overflow: hidden; height: 25px; margin-top: 5px; }
 #progress-fill { height: 100%; width: 0%; background-color: #4a90e2; text-align: center; color: #fff; line-height: 25px; font-weight: bold; transition: width 0.3s; }
 .completed { background-color: #4caf50; color: #fff; }
+.recognized-text-box { margin-top: 10px; font-size: 15px; color: #555; background: #f9f9f9; padding: 8px; border-radius: 5px; border: 1px dashed #ccc; }
 </style>
 </head>
 <body>
@@ -56,7 +58,8 @@ audio { width: 100%; max-width: 500px; margin: 0 auto; display: block; }
     </div>
     <div class="user-audio-container">
       <audio id="user-audio" controls class="hidden"></audio>
-      <button id="submit-audio-btn" class="hidden" style="margin-top:10px;">提交錄音</button>
+      <br>
+      <button id="submit-audio-btn" class="hidden" style="margin-top:10px;">提交錄音比對</button>
     </div>
   </div>
   <div id="progress-container">
@@ -65,22 +68,23 @@ audio { width: 100%; max-width: 500px; margin: 0 auto; display: block; }
       <div id="progress-fill">0%</div>
     </div>
     <div id="match-status" style="margin-top:10px; font-weight:bold; color:#4a90e2;"></div>
+    <div id="recognized-result" class="recognized-text-box hidden"></div>
   </div>
 </div>
 
 <script src="recorder.js"></script>
 <script>
 const questions = [
-{ audio: "audio/11150101S.mp3", text: "백화점에 갑니다.", keywords: "백화점,가다" },
-{ audio: "audio/11150102S.mp3", text: "우체국에 갑니다.", keywords: "우체국,가다" },
-{ audio: "audio/11150103S.mp3", text: "집에 옵니다.", keywords: "집,오다" },
-{ audio: "audio/11150104S.mp3", text: "기숙사에 옵니까?", keywords: "기숙사,오다,묻다" },
-{ audio: "audio/11150105S.mp3", text: "도서관에 갑니다.", keywords: "도서관,가다" },
-{ audio: "audio/11150106S.mp3", text: "은행에 갑니까?", keywords: "은행,가다,묻다" },
-{ audio: "audio/11150107S.mp3", text: "편의점에 갑니다.", keywords: "편의점,가다" },
-{ audio: "audio/11150108S.mp3", text: "서점에 갑니다.", keywords: "서점,가다" },
-{ audio: "audio/11150109S.mp3", text: "노래방에 갑니다.", keywords: "노래방,가다" },
-{ audio: "audio/11150110S.mp3", text: "박물관에 옵니다.", keywords: "박물관,오다" }
+  { audio: "audio/11150101S.mp3", text: "백화점에 갑니다.", keywords: "백화점,가다" },
+  { audio: "audio/11150102S.mp3", text: "우체국에 갑니다.", keywords: "우체국,가다" },
+  { audio: "audio/11150103S.mp3", text: "집에 옵니다.", keywords: "집,오다" },
+  { audio: "audio/11150104S.mp3", text: "기숙사에 옵니까?", keywords: "기숙사,오다,묻다" },
+  { audio: "audio/11150105S.mp3", text: "도서관에 갑니다.", keywords: "도서관,가다" },
+  { audio: "audio/11150106S.mp3", text: "은행에 갑니까?", keywords: "은행,가다,묻다" },
+  { audio: "audio/11150107S.mp3", text: "편의점에 갑니다.", keywords: "편의점,가다" },
+  { audio: "audio/11150108S.mp3", text: "서점에 갑니다.", keywords: "서점,가다" },
+  { audio: "audio/11150109S.mp3", text: "노래방에 갑니다.", keywords: "노래방,가다" },
+  { audio: "audio/11150110S.mp3", text: "박물관에 옵니다.", keywords: "박물관,오다" }
 ];
 
 let currentQuestion = 0;
@@ -88,6 +92,8 @@ let isProMode = false;
 let recorder, audioContext, stream;
 let startTime = Date.now();
 let completedQuestions = [];
+let speechRecognizer = null;
+let speechResultText = "";
 
 const unit = "11-15-1 句子跟讀挑戰";
 
@@ -103,11 +109,29 @@ const completedListSpan = document.getElementById("completed-list");
 const progressFill = document.getElementById("progress-fill");
 const submitBtn = document.getElementById("submit-audio-btn");
 const matchStatus = document.getElementById("match-status");
+const recognizedResultDiv = document.getElementById("recognized-result");
 
 const nicknameContainer = document.getElementById("nickname-container");
 const nicknameInput = document.getElementById("nickname-input");
 const startGameBtn = document.getElementById("start-game-btn");
 const gameContainer = document.getElementById("game-container");
+
+// 初始化 Web Speech API (瀏覽器原生韓文語音辨識)
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SpeechRecognition) {
+  speechRecognizer = new SpeechRecognition();
+  speechRecognizer.lang = 'ko-KR'; // 設定韓文
+  speechRecognizer.continuous = false;
+  speechRecognizer.interimResults = false;
+
+  speechRecognizer.onresult = (event) => {
+    speechResultText = event.results[0][0].transcript;
+  };
+
+  speechRecognizer.onerror = (event) => {
+    console.warn("語音辨識警告/錯誤:", event.error);
+  };
+}
 
 function showQuestion() {
   const q = questions[currentQuestion];
@@ -121,6 +145,9 @@ function showQuestion() {
   questionText.style.visibility = isProMode ? "hidden" : "visible";
   keywordsDiv.style.visibility = isProMode ? "hidden" : "visible";
   matchStatus.textContent = "";
+  recognizedResultDiv.classList.add("hidden");
+  recognizedResultDiv.textContent = "";
+  speechResultText = "";
 }
 
 function createQuestionButtons() {
@@ -148,26 +175,51 @@ proModeBtn.onclick = () => {
 };
 
 startBtn.onclick = async () => {
-  stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const input = audioContext.createMediaStreamSource(stream);
-  recorder = new Recorder(input, { numChannels: 1 });
-  recorder.record();
-  startBtn.disabled = true;
-  stopBtn.disabled = false;
+  try {
+    stopRecordingIfNeeded();
+    speechResultText = "";
+    
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const input = audioContext.createMediaStreamSource(stream);
+    
+    recorder = new Recorder(input, { numChannels: 1 });
+    recorder.clear();
+    recorder.record();
 
-  questionText.style.visibility = "hidden";
+    if (speechRecognizer) {
+      try { speechRecognizer.start(); } catch (e) { /* 防止重複啟動 */ }
+    }
+
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    questionText.style.visibility = "hidden";
+    matchStatus.textContent = "";
+    recognizedResultDiv.classList.add("hidden");
+  } catch (err) {
+    alert("無法存取麥克風，請確認權限設定。");
+    console.error(err);
+  }
 };
 
 stopBtn.onclick = () => {
-  recorder.stop();
-  stream.getAudioTracks()[0].stop();
+  if (recorder) recorder.stop();
+  
+  if (speechRecognizer) {
+    try { speechRecognizer.stop(); } catch (e) {}
+  }
 
-  recorder.exportWAV(blob => {
-    userAudio.src = URL.createObjectURL(blob);
-    userAudio.classList.remove("hidden");
-    submitBtn.classList.remove("hidden");
-  });
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+  }
+
+  if (recorder) {
+    recorder.exportWAV(blob => {
+      userAudio.src = URL.createObjectURL(blob);
+      userAudio.classList.remove("hidden");
+      submitBtn.classList.remove("hidden");
+    });
+  }
 
   startBtn.disabled = false;
   stopBtn.disabled = true;
@@ -183,7 +235,7 @@ submitBtn.onclick = () => {
   const interval = setInterval(() => {
     dots = (dots + 1) % 4;
     matchStatus.textContent = "比對中" + "·".repeat(dots);
-  }, 500);
+  }, 400);
 
   submitBtn.classList.add("hidden");
 
@@ -192,8 +244,11 @@ submitBtn.onclick = () => {
     const target = questions[currentQuestion].text;
     const score = similarity(recognizedText, target);
 
+    recognizedResultDiv.textContent = `辨識結果：${recognizedText || "(未辨識到清晰語音)"}`;
+    recognizedResultDiv.classList.remove("hidden");
+
     if (score >= 70) {
-      matchStatus.textContent = `✅ 通過！相似度 ${score.toFixed(2)}%`;
+      matchStatus.textContent = `✅ 通過！相似度 ${score.toFixed(1)}%`;
       if (!completedQuestions.includes(currentQuestion+1)) {
         completedQuestions.push(currentQuestion+1);
         updateProgress();
@@ -202,9 +257,7 @@ submitBtn.onclick = () => {
         sendToGoogleForm(nickname, unit, totalScore, timeSpent, currentQuestion+1);
       }
     } else {
-      matchStatus.textContent = `❌ 未通過，相似度 ${score.toFixed(2)}%，請重新錄音！`;
-      userAudio.src = "";
-      userAudio.classList.add("hidden");
+      matchStatus.textContent = `❌ 未通過（相似度 ${score.toFixed(1)}%），請重新朗讀！`;
       startBtn.disabled = false;
       stopBtn.disabled = true;
     }
@@ -214,10 +267,15 @@ submitBtn.onclick = () => {
 function stopRecordingIfNeeded() {
   if (recorder && recorder.recording) {
     recorder.stop();
-    stream.getAudioTracks()[0].stop();
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
   }
+  if (speechRecognizer) {
+    try { speechRecognizer.stop(); } catch (e) {}
+  }
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+  }
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
 }
 
 function updateProgress() {
@@ -248,15 +306,16 @@ async function fetchPreviousProgress(nickname) {
     const response = await fetch(apiUrl, { headers: { Authorization: `Bearer ${apiKey}` } });
     const data = await response.json();
 
-    const userRecords = data.filter(row => row.nickname === nickname && row.unit === unit);
-    const completedSet = new Set();
-    userRecords.forEach(row => {
-      if (row.questionNumber) completedSet.add(parseInt(row.questionNumber));
-    });
+    if (Array.isArray(data)) {
+      const userRecords = data.filter(row => row.nickname === nickname && row.unit === unit);
+      const completedSet = new Set();
+      userRecords.forEach(row => {
+        if (row.questionNumber) completedSet.add(parseInt(row.questionNumber));
+      });
 
-    completedQuestions = Array.from(completedSet).sort((a,b)=>a-b);
-    updateProgress();
-
+      completedQuestions = Array.from(completedSet).sort((a,b)=>a-b);
+      updateProgress();
+    }
   } catch (err) {
     console.error("讀取先前進度失敗:", err);
   }
@@ -280,20 +339,41 @@ startGameBtn.onclick = () => {
   updateProgress();
 };
 
+// 編輯距離 (Levenshtein Distance) 相似度算法
 function similarity(a, b) {
   if (!a || !b) return 0;
-  a = a.toLowerCase(); b = b.toLowerCase();
-  let same = 0;
-  const minLen = Math.min(a.length, b.length);
-  for (let i=0;i<minLen;i++) if (a[i]===b[i]) same++;
-  return (same / b.length) * 100;
+  // 清除韓文/英數字以外的標點符號與多餘空格
+  const cleanA = a.replace(/[^\w\uAC00-\uD7A3]/g, "").toLowerCase();
+  const cleanB = b.replace(/[^\w\uAC00-\uD7A3]/g, "").toLowerCase();
+  
+  if (!cleanA || !cleanB) return 0;
+
+  const track = Array(cleanB.length + 1).fill(null).map(() =>
+    Array(cleanA.length + 1).fill(null));
+  for (let i = 0; i <= cleanA.length; i += 1) track[0][i] = i;
+  for (let j = 0; j <= cleanB.length; j += 1) track[j][0] = j;
+
+  for (let j = 1; j <= cleanB.length; j += 1) {
+    for (let i = 1; i <= cleanA.length; i += 1) {
+      const indicator = cleanA[i - 1] === cleanB[j - 1] ? 0 : 1;
+      track[j][i] = Math.min(
+        track[j][i - 1] + 1, // 插入
+        track[j - 1][i] + 1, // 刪除
+        track[j - 1][i - 1] + indicator // 替換
+      );
+    }
+  }
+  
+  const distance = track[cleanB.length][cleanA.length];
+  const maxLen = Math.max(cleanA.length, cleanB.length);
+  return maxLen === 0 ? 100 : ((maxLen - distance) / maxLen) * 100;
 }
 
 function recognizeSpeech(callback) {
   setTimeout(() => {
-    const random = Math.random();
-    callback(random>0.5 ? questions[currentQuestion].text : "隨機錯誤結果");
-  }, 2000);
+    // 優先使用 Web Speech API 的辨識結果，若不支援或未捕捉到，則自動提供容錯處理
+    callback(speechResultText || "");
+  }, 1000);
 }
 </script>
 </body>
